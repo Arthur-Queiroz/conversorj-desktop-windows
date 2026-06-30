@@ -8,6 +8,9 @@ var tests = new (string Name, Func<Task> Run)[]
     ("MediaConverter builds MP3 arguments", TestMp3Arguments),
     ("MediaConverter builds MP4 arguments", TestMp4Arguments),
     ("MediaConverter builds MP4 resolution arguments", TestMp4ResolutionArguments),
+    ("TranscriptionService builds audio arguments", TestTranscriptionAudioArguments),
+    ("TranscriptionService builds whisper arguments", TestWhisperArguments),
+    ("TranscriptionModels map tiers to ggml files", TestTranscriptionModelFiles),
     ("DurationChecker reads duration", TestDuration),
     ("DurationChecker rejects long videos", TestDurationExceeded),
     ("ConversionService validates before yt-dlp", TestServiceValidation),
@@ -167,6 +170,65 @@ static Task TestMp4ResolutionArguments()
     return Task.CompletedTask;
 }
 
+static Task TestTranscriptionAudioArguments()
+{
+    IReadOnlyList<string> args = TranscriptionService.BuildAudioArgs("https://youtu.be/abc", "C:\\Temp");
+
+    AssertSequence(
+        [
+            "-x",
+            "--audio-format",
+            "wav",
+            "--postprocessor-args",
+            "ffmpeg:-ac 1 -ar 16000",
+            "--no-playlist",
+            "--no-warnings",
+            "--no-part",
+            "-P",
+            "C:\\Temp",
+            "-o",
+            "%(title).80B.%(ext)s",
+            "https://youtu.be/abc",
+        ],
+        args);
+
+    return Task.CompletedTask;
+}
+
+static Task TestWhisperArguments()
+{
+    IReadOnlyList<string> args = TranscriptionService.BuildWhisperArgs(
+        "C:\\App\\bin\\models\\ggml-base-q5_1.bin",
+        "C:\\Temp\\audio.wav",
+        "C:\\Temp\\audio");
+
+    AssertSequence(
+        [
+            "-m",
+            "C:\\App\\bin\\models\\ggml-base-q5_1.bin",
+            "-f",
+            "C:\\Temp\\audio.wav",
+            "-otxt",
+            "-of",
+            "C:\\Temp\\audio",
+            "-l",
+            "auto",
+        ],
+        args);
+
+    return Task.CompletedTask;
+}
+
+static Task TestTranscriptionModelFiles()
+{
+    AssertEqual("ggml-tiny-q5_1.bin", TranscriptionModels.FileName(TranscriptionModel.Tiny));
+    AssertEqual("ggml-base-q5_1.bin", TranscriptionModels.FileName(TranscriptionModel.Base));
+    AssertEqual("ggml-small-q5_1.bin", TranscriptionModels.FileName(TranscriptionModel.Small));
+    AssertEqual("ggml-large-v3-turbo-q5_0.bin", TranscriptionModels.FileName(TranscriptionModel.Large));
+
+    return Task.CompletedTask;
+}
+
 static async Task TestDuration()
 {
     var runner = new FakeRunner(new CommandResult(0, """{"duration":1199.5}""", ""));
@@ -200,7 +262,10 @@ static async Task TestDurationExceeded()
 static async Task TestServiceValidation()
 {
     var runner = new FakeRunner(new CommandResult(0, """{"duration":60}""", ""));
-    var service = new ConversionService(new DurationChecker(runner), new MediaConverter(runner));
+    var service = new ConversionService(
+        new DurationChecker(runner),
+        new MediaConverter(runner),
+        new TranscriptionService(runner, new FakeWhisperRunner(), "C:\\App\\bin\\models"));
 
     ConversionException exception = await AssertThrowsAsync<ConversionException>(
         () => service.ConvertAsync(
@@ -208,6 +273,7 @@ static async Task TestServiceValidation()
             "https://x.com/user/status/123",
             OutputFormat.Mp3,
             VideoResolution.Best,
+            TranscriptionModel.Base,
             "C:\\Downloads",
             CancellationToken.None));
 
@@ -259,6 +325,14 @@ static async Task<TException> AssertThrowsAsync<TException>(Func<Task> action)
     }
 
     throw new InvalidOperationException($"expected exception {typeof(TException).Name}");
+}
+
+sealed class FakeWhisperRunner : IWhisperRunner
+{
+    public Task<CommandResult> RunAsync(IEnumerable<string> arguments, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new CommandResult(0, "", ""));
+    }
 }
 
 sealed class FakeRunner : IYtDlpRunner

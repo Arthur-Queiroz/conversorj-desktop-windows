@@ -41,7 +41,7 @@
 
         <StackPanel>
             <TextBlock Text="ConversorJ" FontSize="30" FontWeight="SemiBold" Foreground="#16181D" />
-            <TextBlock Text="YouTube e X para MP3 ou MP4, salvo direto no seu computador."
+            <TextBlock Text="YouTube e X para MP3, MP4 ou TXT, salvo direto no seu computador."
                        Margin="0,6,0,24"
                        Foreground="#666D7A"
                        FontSize="14" />
@@ -75,15 +75,28 @@
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,24">
                         <RadioButton Content="MP3 - Apenas audio" IsChecked="{Binding IsMp3}" IsEnabled="{Binding CanEdit}" />
                         <RadioButton Content="MP4 - Video completo" IsChecked="{Binding IsMp4}" IsEnabled="{Binding CanEdit}" />
+                        <RadioButton Content="TXT - Transcricao" IsChecked="{Binding IsTxt}" IsEnabled="{Binding CanEdit}" />
                     </StackPanel>
 
-                    <TextBlock Text="Resolucao do video" FontWeight="SemiBold" Foreground="#30343B" />
-                    <ComboBox ItemsSource="{Binding VideoResolutionChoices}"
-                              SelectedValue="{Binding SelectedVideoResolution}"
-                              DisplayMemberPath="Label"
-                              SelectedValuePath="Value"
-                              IsEnabled="{Binding IsVideoResolutionEnabled}"
-                              Margin="0,10,0,24" />
+                    <StackPanel Visibility="{Binding VideoResolutionVisibility}">
+                        <TextBlock Text="Resolucao do video" FontWeight="SemiBold" Foreground="#30343B" />
+                        <ComboBox ItemsSource="{Binding VideoResolutionChoices}"
+                                  SelectedValue="{Binding SelectedVideoResolution}"
+                                  DisplayMemberPath="Label"
+                                  SelectedValuePath="Value"
+                                  IsEnabled="{Binding CanEdit}"
+                                  Margin="0,10,0,24" />
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding TranscriptionModelVisibility}">
+                        <TextBlock Text="Modelo de transcricao" FontWeight="SemiBold" Foreground="#30343B" />
+                        <ComboBox ItemsSource="{Binding TranscriptionModelChoices}"
+                                  SelectedValue="{Binding SelectedTranscriptionModel}"
+                                  DisplayMemberPath="Label"
+                                  SelectedValuePath="Value"
+                                  IsEnabled="{Binding CanEdit}"
+                                  Margin="0,10,0,24" />
+                    </StackPanel>
 
                     <TextBlock Text="Pasta de saida" FontWeight="SemiBold" Foreground="#30343B" />
                     <Grid Margin="0,10,0,24">

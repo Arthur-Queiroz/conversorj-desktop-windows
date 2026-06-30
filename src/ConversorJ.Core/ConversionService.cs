@@ -1,14 +1,19 @@
-namespace ConversorJ.Core;
+﻿namespace ConversorJ.Core;
 
 public sealed class ConversionService
 {
     private readonly DurationChecker durationChecker;
     private readonly MediaConverter mediaConverter;
+    private readonly TranscriptionService transcriptionService;
 
-    public ConversionService(DurationChecker durationChecker, MediaConverter mediaConverter)
+    public ConversionService(
+        DurationChecker durationChecker,
+        MediaConverter mediaConverter,
+        TranscriptionService transcriptionService)
     {
         this.durationChecker = durationChecker;
         this.mediaConverter = mediaConverter;
+        this.transcriptionService = transcriptionService;
     }
 
     public async Task<ConversionResult> ConvertAsync(
@@ -16,6 +21,7 @@ public sealed class ConversionService
         string url,
         OutputFormat format,
         VideoResolution videoResolution,
+        TranscriptionModel transcriptionModel,
         string outputDirectory,
         CancellationToken cancellationToken)
     {
@@ -25,6 +31,11 @@ public sealed class ConversionService
         }
 
         await durationChecker.EnsureWithinLimitAsync(url, cancellationToken);
+        if (format == OutputFormat.Txt)
+        {
+            return await transcriptionService.TranscribeAsync(url, transcriptionModel, outputDirectory, cancellationToken);
+        }
+
         return await mediaConverter.ConvertAsync(url, format, videoResolution, outputDirectory, cancellationToken);
     }
 
