@@ -11,9 +11,17 @@ var tests = new (string Name, Func<Task> Run)[]
     ("TranscriptionService builds audio arguments", TestTranscriptionAudioArguments),
     ("TranscriptionService builds whisper arguments", TestWhisperArguments),
     ("TranscriptionModels map tiers to ggml files", TestTranscriptionModelFiles),
+    ("TranscriptionModels.FileName rejects unknown model", TestUnknownModelFile),
+    ("TranscriptionModels.Installed lists present files in tier order", TestInstalledModels),
+    ("MediaConverter builds all MP4 resolution selectors", TestMp4AllResolutions),
     ("DurationChecker reads duration", TestDuration),
     ("DurationChecker rejects long videos", TestDurationExceeded),
+    ("DurationChecker allows exactly the limit", TestDurationAtLimit),
+    ("DurationChecker fails on yt-dlp error exit", TestDurationExtractionFailed),
+    ("DurationChecker fails on invalid metadata JSON", TestDurationParseError),
+    ("DurationChecker fails when duration missing", TestDurationMissing),
     ("ConversionService validates before yt-dlp", TestServiceValidation),
+    ("ConversionService routes TXT to transcription", TestServiceRoutesToTranscription),
 };
 
 foreach ((string name, Func<Task> run) in tests)
@@ -229,6 +237,60 @@ static Task TestTranscriptionModelFiles()
     return Task.CompletedTask;
 }
 
+static Task TestUnknownModelFile()
+{
+    AssertThrows<ArgumentOutOfRangeException>(() => TranscriptionModels.FileName((TranscriptionModel)999));
+
+    return Task.CompletedTask;
+}
+
+static Task TestInstalledModels()
+{
+    string withModels = CreateTempDir();
+    string empty = CreateTempDir();
+    try
+    {
+        // Only Base and Large present; Tiny and Small absent.
+        File.WriteAllText(Path.Combine(withModels, TranscriptionModels.FileName(TranscriptionModel.Base)), "");
+        File.WriteAllText(Path.Combine(withModels, TranscriptionModels.FileName(TranscriptionModel.Large)), "");
+
+        IReadOnlyList<TranscriptionModel> installed = TranscriptionModels.Installed(withModels);
+
+        // Order matters: the UI defaults to the last (best) installed model.
+        AssertSequenceEqual([TranscriptionModel.Base, TranscriptionModel.Large], installed);
+        AssertEqual(0, TranscriptionModels.Installed(empty).Count);
+    }
+    finally
+    {
+        DeleteTempDir(withModels);
+        DeleteTempDir(empty);
+    }
+
+    return Task.CompletedTask;
+}
+
+static Task TestMp4AllResolutions()
+{
+    AssertEqual(
+        "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best",
+        Mp4SelectorFor(VideoResolution.P1080));
+    AssertEqual(
+        "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]/best",
+        Mp4SelectorFor(VideoResolution.P480));
+    AssertEqual(
+        "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360][ext=mp4]/best[height<=360]/best",
+        Mp4SelectorFor(VideoResolution.P360));
+
+    return Task.CompletedTask;
+}
+
+static string Mp4SelectorFor(VideoResolution resolution)
+{
+    IReadOnlyList<string> args = MediaConverter.BuildArgs("https://youtu.be/abc", OutputFormat.Mp4, "C:\\Downloads", resolution);
+    int index = args.ToList().IndexOf("-f");
+    return args[index + 1];
+}
+
 static async Task TestDuration()
 {
     var runner = new FakeRunner(new CommandResult(0, """{"duration":1199.5}""", ""));
@@ -259,6 +321,48 @@ static async Task TestDurationExceeded()
     AssertEqual("duration_exceeded", exception.Code);
 }
 
+static async Task TestDurationAtLimit()
+{
+    // Exactly at the 20-minute limit must pass; the check uses a strict greater-than.
+    var runner = new FakeRunner(new CommandResult(0, """{"duration":1200}""", ""));
+    var checker = new DurationChecker(runner);
+
+    await checker.EnsureWithinLimitAsync("https://youtu.be/abc", CancellationToken.None);
+}
+
+static async Task TestDurationExtractionFailed()
+{
+    var runner = new FakeRunner(new CommandResult(1, "", "boom"));
+    var checker = new DurationChecker(runner);
+
+    ConversionException exception = await AssertThrowsAsync<ConversionException>(
+        () => checker.GetDurationAsync("https://youtu.be/abc", CancellationToken.None));
+
+    AssertEqual("extraction_failed", exception.Code);
+}
+
+static async Task TestDurationParseError()
+{
+    var runner = new FakeRunner(new CommandResult(0, "not json", ""));
+    var checker = new DurationChecker(runner);
+
+    ConversionException exception = await AssertThrowsAsync<ConversionException>(
+        () => checker.GetDurationAsync("https://youtu.be/abc", CancellationToken.None));
+
+    AssertEqual("parse_metadata", exception.Code);
+}
+
+static async Task TestDurationMissing()
+{
+    var runner = new FakeRunner(new CommandResult(0, "{}", ""));
+    var checker = new DurationChecker(runner);
+
+    ConversionException exception = await AssertThrowsAsync<ConversionException>(
+        () => checker.GetDurationAsync("https://youtu.be/abc", CancellationToken.None));
+
+    AssertEqual("extraction_failed", exception.Code);
+}
+
 static async Task TestServiceValidation()
 {
     var runner = new FakeRunner(new CommandResult(0, """{"duration":60}""", ""));
@@ -279,6 +383,42 @@ static async Task TestServiceValidation()
 
     AssertEqual("invalid_url", exception.Code);
     AssertEqual(0, runner.Calls.Count);
+}
+
+static async Task TestServiceRoutesToTranscription()
+{
+    var runner = new FakeRunner(new CommandResult(0, """{"duration":60}""", ""));
+    string emptyModels = CreateTempDir();
+    string output = CreateTempDir();
+    try
+    {
+        var service = new ConversionService(
+            new DurationChecker(runner),
+            new MediaConverter(runner),
+            new TranscriptionService(runner, new FakeWhisperRunner(), emptyModels));
+
+        // No model file present, so the TXT path bails with missing_whisper_model.
+        // That can only happen if the service routed to the transcription branch.
+        ConversionException exception = await AssertThrowsAsync<ConversionException>(
+            () => service.ConvertAsync(
+                Platform.YouTube,
+                "https://youtu.be/abc",
+                OutputFormat.Txt,
+                VideoResolution.Best,
+                TranscriptionModel.Base,
+                output,
+                CancellationToken.None));
+
+        AssertEqual("missing_whisper_model", exception.Code);
+
+        // Only the duration check ran; transcription bailed before invoking yt-dlp for audio.
+        AssertEqual(1, runner.Calls.Count);
+    }
+    finally
+    {
+        DeleteTempDir(emptyModels);
+        DeleteTempDir(output);
+    }
 }
 
 static void AssertTrue(bool condition, string message)
@@ -304,6 +444,11 @@ static void AssertEqual<T>(T expected, T actual)
 
 static void AssertSequence(IReadOnlyList<string> expected, IReadOnlyList<string> actual)
 {
+    AssertSequenceEqual(expected, actual);
+}
+
+static void AssertSequenceEqual<T>(IReadOnlyList<T> expected, IReadOnlyList<T> actual)
+{
     AssertEqual(expected.Count, actual.Count);
 
     for (int i = 0; i < expected.Count; i++)
@@ -325,6 +470,36 @@ static async Task<TException> AssertThrowsAsync<TException>(Func<Task> action)
     }
 
     throw new InvalidOperationException($"expected exception {typeof(TException).Name}");
+}
+
+static TException AssertThrows<TException>(Action action)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException exception)
+    {
+        return exception;
+    }
+
+    throw new InvalidOperationException($"expected exception {typeof(TException).Name}");
+}
+
+static string CreateTempDir()
+{
+    string directory = Path.Combine(Path.GetTempPath(), "ConversorJ.Tests", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(directory);
+    return directory;
+}
+
+static void DeleteTempDir(string directory)
+{
+    if (Directory.Exists(directory))
+    {
+        Directory.Delete(directory, recursive: true);
+    }
 }
 
 sealed class FakeWhisperRunner : IWhisperRunner
