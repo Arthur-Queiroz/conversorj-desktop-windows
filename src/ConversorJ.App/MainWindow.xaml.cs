@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using ConversorJ.App.ViewModels;
 using ConversorJ.Core;
 
@@ -16,10 +16,14 @@ public partial class MainWindow : Window
     {
         BinaryLocation binaries = BinaryLocator.Locate();
         var runner = new YtDlpRunner(binaries.YtDlpPath, binaries.FfmpegDirectory);
+        var whisperRunner = new WhisperRunner(binaries.WhisperPath);
         var durationChecker = new DurationChecker(runner);
         var mediaConverter = new MediaConverter(runner);
-        var conversionService = new ConversionService(durationChecker, mediaConverter);
+        var transcriptionService = new TranscriptionService(runner, whisperRunner, binaries.WhisperModelsDirectory);
+        var conversionService = new ConversionService(durationChecker, mediaConverter, transcriptionService);
 
-        return new MainViewModel(conversionService);
+        IReadOnlyList<TranscriptionModel> installedModels = TranscriptionModels.Installed(binaries.WhisperModelsDirectory);
+
+        return new MainViewModel(conversionService, installedModels);
     }
 }

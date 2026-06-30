@@ -11,11 +11,13 @@ namespace ConversorJ.App.ViewModels;
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private static readonly TimeSpan ConversionTimeout = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan TranscriptionTimeout = TimeSpan.FromMinutes(30);
 
     private readonly ConversionService conversionService;
     private Platform selectedPlatform = Platform.YouTube;
     private OutputFormat selectedFormat = OutputFormat.Mp3;
     private VideoResolution selectedVideoResolution = VideoResolution.Best;
+    private TranscriptionModel selectedTranscriptionModel = TranscriptionModel.Base;
     private string url = string.Empty;
     private string outputDirectory;
     private bool isBusy;
@@ -23,7 +25,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string statusTitle = "Pronto para converter";
     private string statusMessage = "Cole o link, escolha o formato e inicie a conversao.";
 
-    public MainViewModel(ConversionService conversionService)
+    public MainViewModel(ConversionService conversionService, IReadOnlyList<TranscriptionModel> availableTranscriptionModels)
     {
         this.conversionService = conversionService;
         outputDirectory = GetDefaultOutputDirectory();
@@ -36,6 +38,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
             new VideoResolutionChoice("480p", VideoResolution.P480),
             new VideoResolutionChoice("360p", VideoResolution.P360),
         ];
+
+        TranscriptionModelChoices = availableTranscriptionModels
+            .Select(model => new TranscriptionModelChoice(GetTranscriptionModelLabel(model), model))
+            .ToList();
+
+        // Default to the most capable model that is actually installed.
+        if (TranscriptionModelChoices.Count > 0)
+        {
+            selectedTranscriptionModel = TranscriptionModelChoices[^1].Value;
+        }
 
         ConvertCommand = new AsyncRelayCommand(ConvertAsync, () => !IsBusy);
         ChooseOutputDirectoryCommand = new RelayCommand(ChooseOutputDirectory, () => !IsBusy);
@@ -57,6 +69,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public RelayCommand NewConversionCommand { get; }
 
     public IReadOnlyList<VideoResolutionChoice> VideoResolutionChoices { get; }
+
+    public IReadOnlyList<TranscriptionModelChoice> TranscriptionModelChoices { get; }
 
     public bool IsYouTube
     {
@@ -106,6 +120,18 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public bool IsTxt
+    {
+        get => SelectedFormat == OutputFormat.Txt;
+        set
+        {
+            if (value)
+            {
+                SelectedFormat = OutputFormat.Txt;
+            }
+        }
+    }
+
     public string Url
     {
         get => url;
@@ -132,6 +158,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         set => SetField(ref selectedVideoResolution, value);
     }
 
+    public TranscriptionModel SelectedTranscriptionModel
+    {
+        get => selectedTranscriptionModel;
+        set => SetField(ref selectedTranscriptionModel, value);
+    }
+
     public string StatusTitle
     {
         get => statusTitle;
@@ -152,7 +184,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             if (SetField(ref isBusy, value))
             {
                 OnPropertyChanged(nameof(CanEdit));
-                OnPropertyChanged(nameof(IsVideoResolutionEnabled));
                 OnPropertyChanged(nameof(ProgressVisibility));
                 OnPropertyChanged(nameof(ConvertButtonText));
                 RaiseCommandStates();
@@ -162,11 +193,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public bool CanEdit => !IsBusy;
 
-    public bool IsVideoResolutionEnabled => CanEdit && SelectedFormat == OutputFormat.Mp4;
+    public Visibility VideoResolutionVisibility =>
+        SelectedFormat == OutputFormat.Mp4 ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility TranscriptionModelVisibility =>
+        SelectedFormat == OutputFormat.Txt ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility ProgressVisibility => IsBusy ? Visibility.Visible : Visibility.Collapsed;
 
-    public string ConvertButtonText => IsBusy ? "Convertendo..." : $"Converter em {(SelectedFormat == OutputFormat.Mp3 ? "MP3" : "MP4")}";
+    public string ConvertButtonText => IsBusy ? GetBusyText() : GetActionText();
 
     private Platform SelectedPlatform
     {
@@ -197,7 +232,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
             selectedFormat = value;
             OnPropertyChanged(nameof(IsMp3));
             OnPropertyChanged(nameof(IsMp4));
-            OnPropertyChanged(nameof(IsVideoResolutionEnabled));
+            OnPropertyChanged(nameof(IsTxt));
+            OnPropertyChanged(nameof(VideoResolutionVisibility));
+            OnPropertyChanged(nameof(TranscriptionModelVisibility));
             OnPropertyChanged(nameof(ConvertButtonText));
         }
     }
@@ -223,30 +260,29 @@ public sealed class MainViewModel : INotifyPropertyChanged
         IsBusy = true;
         Result = null;
         SetOutputFilename("Nenhum arquivo gerado ainda.");
-        StatusTitle = "Convertendo...";
-        StatusMessage = SelectedFormat == OutputFormat.Mp3
-            ? "Extraindo audio e preparando o MP3."
-            : "Baixando video e mesclando audio com ffmpeg.";
+        StatusTitle = GetBusyTitle();
+        StatusMessage = GetBusyMessage();
 
         try
         {
-            using var timeout = new CancellationTokenSource(ConversionTimeout);
+            using var timeout = new CancellationTokenSource(GetTimeout());
             ConversionResult conversionResult = await conversionService.ConvertAsync(
                 SelectedPlatform,
                 Url.Trim(),
                 SelectedFormat,
                 SelectedVideoResolution,
+                SelectedTranscriptionModel,
                 OutputDirectory,
                 timeout.Token);
 
             Result = conversionResult;
             SetOutputFilename(conversionResult.Filename);
-            StatusTitle = "Conversao concluida";
+            StatusTitle = SelectedFormat == OutputFormat.Txt ? "Transcricao concluida" : "Conversao concluida";
             StatusMessage = "Seu arquivo esta pronto na pasta de saida.";
         }
         catch (OperationCanceledException)
         {
-            ShowError("Tempo limite atingido", "A conversao demorou demais e foi cancelada.");
+            ShowError("Tempo limite atingido", "A operacao demorou demais e foi cancelada.");
         }
         catch (ConversionException ex)
         {
@@ -254,7 +290,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
         catch (Exception)
         {
-            ShowError("Erro ao converter", "Nao foi possivel concluir a conversao. Tente novamente.");
+            ShowError("Erro ao converter", "Nao foi possivel concluir a operacao. Tente novamente.");
         }
         finally
         {
@@ -324,6 +360,43 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(OutputFilename));
     }
 
+    private string GetActionText()
+    {
+        return SelectedFormat switch
+        {
+            OutputFormat.Mp3 => "Converter em MP3",
+            OutputFormat.Mp4 => "Converter em MP4",
+            OutputFormat.Txt => "Transcrever em TXT",
+            _ => "Converter",
+        };
+    }
+
+    private string GetBusyText()
+    {
+        return SelectedFormat == OutputFormat.Txt ? "Transcrevendo..." : "Convertendo...";
+    }
+
+    private string GetBusyTitle()
+    {
+        return SelectedFormat == OutputFormat.Txt ? "Transcrevendo..." : "Convertendo...";
+    }
+
+    private string GetBusyMessage()
+    {
+        return SelectedFormat switch
+        {
+            OutputFormat.Mp3 => "Extraindo audio e preparando o MP3.",
+            OutputFormat.Mp4 => "Baixando video e mesclando audio com ffmpeg.",
+            OutputFormat.Txt => "Preparando o audio e transcrevendo com whisper.cpp.",
+            _ => "Processando o arquivo.",
+        };
+    }
+
+    private TimeSpan GetTimeout()
+    {
+        return SelectedFormat == OutputFormat.Txt ? TranscriptionTimeout : ConversionTimeout;
+    }
+
     private static string GetUserTitle(string code)
     {
         return code switch
@@ -331,7 +404,13 @@ public sealed class MainViewModel : INotifyPropertyChanged
             "invalid_url" => "Link invalido",
             "duration_exceeded" => "Video muito longo",
             "missing_binary" => "Binarios nao encontrados",
+            "missing_whisper_binary" => "Whisper nao encontrado",
+            "missing_whisper_model" => "Modelo nao encontrado",
             "extraction_failed" => "Falha ao ler o video",
+            "transcription_audio_failed" => "Falha ao preparar audio",
+            "transcription_audio_not_found" => "Audio nao encontrado",
+            "transcription_failed" => "Falha ao transcrever",
+            "transcription_output_not_found" => "TXT nao encontrado",
             _ => "Erro ao converter",
         };
     }
@@ -343,8 +422,26 @@ public sealed class MainViewModel : INotifyPropertyChanged
             "invalid_url" => exception.Message,
             "duration_exceeded" => "Mais de 20 minutos. Tente um trecho mais curto.",
             "missing_binary" => "Coloque yt-dlp.exe e ffmpeg.exe na pasta bin do aplicativo, ou instale o yt-dlp no PATH.",
+            "missing_whisper_binary" => "Coloque whisper-cli.exe na pasta bin do aplicativo, ou instale o whisper-cli no PATH.",
+            "missing_whisper_model" => exception.Message,
             "extraction_failed" => "Nao foi possivel obter informacoes do video. Verifique o link e tente novamente.",
+            "transcription_audio_failed" => exception.Message,
+            "transcription_audio_not_found" => "O audio preparado para transcricao nao foi encontrado.",
+            "transcription_failed" => exception.Message,
+            "transcription_output_not_found" => "A transcricao terminou, mas o arquivo TXT nao foi encontrado.",
             _ => "Erro ao converter o video. Tente novamente.",
+        };
+    }
+
+    private static string GetTranscriptionModelLabel(TranscriptionModel model)
+    {
+        return model switch
+        {
+            TranscriptionModel.Tiny => "Muito rapida",
+            TranscriptionModel.Base => "Transcricao rapida",
+            TranscriptionModel.Small => "Equilibrada",
+            TranscriptionModel.Large => "Melhor transcricao possivel",
+            _ => model.ToString(),
         };
     }
 
@@ -384,3 +481,5 @@ public sealed class MainViewModel : INotifyPropertyChanged
 }
 
 public sealed record VideoResolutionChoice(string Label, VideoResolution Value);
+
+public sealed record TranscriptionModelChoice(string Label, TranscriptionModel Value);
