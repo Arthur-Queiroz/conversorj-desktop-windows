@@ -7,167 +7,260 @@
         Title="ConversorJ"
         Height="640"
         Width="920"
-        MinHeight="560"
+        MinHeight="520"
         MinWidth="760"
         Icon="Assets/conversorj.ico"
-        Background="#F4F5F7">
+        Background="{DynamicResource AppBackgroundBrush}">
     <Window.Resources>
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FAFAFD" />
+        <SolidColorBrush x:Key="NestedPanelBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="InputBackgroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#252333" />
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#908AA3" />
+        <SolidColorBrush x:Key="LabelTextBrush" Color="#363247" />
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#E4E0EC" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#ECE8F3" />
+        <SolidColorBrush x:Key="SubtleBorderBrush" Color="#E6E1EF" />
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#F4F1FA" />
+        <SolidColorBrush x:Key="ButtonBorderBrush" Color="#D8D0E7" />
+        <SolidColorBrush x:Key="PrimaryButtonBackgroundBrush" Color="#8B5CF6" />
+        <SolidColorBrush x:Key="PrimaryButtonForegroundBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="ToggleTrackBrush" Color="#E7E1F2" />
+        <SolidColorBrush x:Key="ToggleThumbBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#8B5CF6" />
+
         <Style TargetType="Button">
             <Setter Property="Padding" Value="16,10" />
             <Setter Property="MinHeight" Value="40" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
         </Style>
         <Style TargetType="TextBox">
             <Setter Property="MinHeight" Value="42" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="FontSize" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
         </Style>
         <Style TargetType="ComboBox">
             <Setter Property="MinHeight" Value="42" />
             <Setter Property="Padding" Value="10,6" />
             <Setter Property="FontSize" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
         </Style>
         <Style TargetType="RadioButton">
             <Setter Property="Margin" Value="0,0,14,0" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+        </Style>
+        <Style x:Key="ThemeSwitchStyle" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Track"
+                                Width="48"
+                                Height="26"
+                                Background="{DynamicResource ToggleTrackBrush}"
+                                BorderBrush="{DynamicResource PanelBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="13">
+                            <Ellipse x:Name="Thumb"
+                                     Width="20"
+                                     Height="20"
+                                     Margin="2"
+                                     HorizontalAlignment="Left"
+                                     Fill="{DynamicResource ToggleThumbBrush}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
-    <Grid Margin="34">
+    <Grid Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="ConversorJ" FontSize="30" FontWeight="SemiBold" Foreground="#16181D" />
-            <TextBlock Text="YouTube e X para MP3, MP4 ou TXT, salvo direto no seu computador."
-                       Margin="0,6,0,24"
-                       Foreground="#666D7A"
-                       FontSize="14" />
-        </StackPanel>
+        <Grid Margin="0,0,0,24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="ConversorJ"
+                       FontSize="32"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource AccentBrush}" />
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Top"
+                        Margin="20,6,0,0">
+                <TextBlock x:Name="ThemeToggleText"
+                           Text="Modo claro"
+                           Margin="0,0,10,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                <CheckBox x:Name="ThemeToggle"
+                          Style="{StaticResource ThemeSwitchStyle}"
+                          ToolTip="Alternar modo claro ou escuro"
+                          Checked="ThemeToggleChanged"
+                          Unchecked="ThemeToggleChanged" />
+            </StackPanel>
+        </Grid>
 
         <Border Grid.Row="1"
-                Background="White"
-                BorderBrush="#DADDE5"
+                Background="{DynamicResource CardBackgroundBrush}"
+                BorderBrush="{DynamicResource CardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="8"
-                Padding="26">
+                Padding="22">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.25*" />
+                    <ColumnDefinition Width="1.35*" />
                     <ColumnDefinition Width="0.9*" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" Margin="0,0,26,0">
-                    <TextBlock Text="01  Plataforma" FontWeight="SemiBold" Foreground="#30343B" />
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,24">
-                        <RadioButton Content="YouTube" IsChecked="{Binding IsYouTube}" IsEnabled="{Binding CanEdit}" />
-                        <RadioButton Content="x.com (Twitter)" IsChecked="{Binding IsX}" IsEnabled="{Binding CanEdit}" />
-                    </StackPanel>
+                <Grid Grid.Column="0" Margin="0,0,22,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                    <TextBlock Text="02  Link do video" FontWeight="SemiBold" Foreground="#30343B" />
-                    <TextBox Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding CanEdit}"
-                             Margin="0,10,0,24" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="0,0,4,0">
+                        <StackPanel>
+                            <TextBlock Text="01  Plataforma" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                            <WrapPanel Margin="0,8,0,18">
+                                <RadioButton Content="YouTube" IsChecked="{Binding IsYouTube}" IsEnabled="{Binding CanEdit}" />
+                                <RadioButton Content="x.com (Twitter)" IsChecked="{Binding IsX}" IsEnabled="{Binding CanEdit}" />
+                            </WrapPanel>
 
-                    <TextBlock Text="03  Formato de saida" FontWeight="SemiBold" Foreground="#30343B" />
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,24">
-                        <RadioButton Content="MP3 - Apenas audio" IsChecked="{Binding IsMp3}" IsEnabled="{Binding CanEdit}" />
-                        <RadioButton Content="MP4 - Video completo" IsChecked="{Binding IsMp4}" IsEnabled="{Binding CanEdit}" />
-                        <RadioButton Content="TXT - Transcricao" IsChecked="{Binding IsTxt}" IsEnabled="{Binding CanEdit}" />
-                    </StackPanel>
+                            <TextBlock Text="02  Link do video" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                            <TextBox Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding CanEdit}"
+                                     Margin="0,8,0,18" />
 
-                    <StackPanel Visibility="{Binding VideoResolutionVisibility}">
-                        <TextBlock Text="Resolucao do video" FontWeight="SemiBold" Foreground="#30343B" />
-                        <ComboBox ItemsSource="{Binding VideoResolutionChoices}"
-                                  SelectedValue="{Binding SelectedVideoResolution}"
-                                  DisplayMemberPath="Label"
-                                  SelectedValuePath="Value"
-                                  IsEnabled="{Binding CanEdit}"
-                                  Margin="0,10,0,24" />
-                    </StackPanel>
+                            <TextBlock Text="03  Formato de saida" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                            <WrapPanel Margin="0,8,0,18">
+                                <RadioButton Content="MP3 - Apenas audio" IsChecked="{Binding IsMp3}" IsEnabled="{Binding CanEdit}" />
+                                <RadioButton Content="MP4 - Video completo" IsChecked="{Binding IsMp4}" IsEnabled="{Binding CanEdit}" />
+                                <RadioButton Content="TXT - Transcricao" IsChecked="{Binding IsTxt}" IsEnabled="{Binding CanEdit}" />
+                            </WrapPanel>
 
-                    <StackPanel Visibility="{Binding TranscriptionModelVisibility}">
-                        <TextBlock Text="Modelo de transcricao" FontWeight="SemiBold" Foreground="#30343B" />
-                        <ComboBox ItemsSource="{Binding TranscriptionModelChoices}"
-                                  SelectedValue="{Binding SelectedTranscriptionModel}"
-                                  DisplayMemberPath="Label"
-                                  SelectedValuePath="Value"
-                                  IsEnabled="{Binding CanEdit}"
-                                  Margin="0,10,0,24" />
-                    </StackPanel>
+                            <StackPanel Visibility="{Binding VideoResolutionVisibility}">
+                                <TextBlock Text="Resolucao do video" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                                <ComboBox ItemsSource="{Binding VideoResolutionChoices}"
+                                          SelectedValue="{Binding SelectedVideoResolution}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          IsEnabled="{Binding CanEdit}"
+                                          Margin="0,8,0,18" />
+                            </StackPanel>
 
-                    <TextBlock Text="Pasta de saida" FontWeight="SemiBold" Foreground="#30343B" />
-                    <Grid Margin="0,10,0,24">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding OutputDirectory, Mode=OneWay}"
-                                 IsEnabled="False" />
-                        <Button Grid.Column="1"
-                                Content="Escolher pasta"
-                                Command="{Binding ChooseOutputDirectoryCommand}"
-                                Margin="12,0,0,0" />
-                    </Grid>
+                            <StackPanel Visibility="{Binding TranscriptionModelVisibility}">
+                                <TextBlock Text="Modelo de transcricao" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                                <ComboBox ItemsSource="{Binding TranscriptionModelChoices}"
+                                          SelectedValue="{Binding SelectedTranscriptionModel}"
+                                          DisplayMemberPath="Label"
+                                          SelectedValuePath="Value"
+                                          IsEnabled="{Binding CanEdit}"
+                                          Margin="0,8,0,18" />
+                            </StackPanel>
 
-                    <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Pasta de saida" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding OutputDirectory, Mode=OneWay}"
+                                         IsReadOnly="True" />
+                                <Button Grid.Column="1"
+                                        Content="Escolher pasta"
+                                        Command="{Binding ChooseOutputDirectoryCommand}"
+                                        Margin="12,0,0,0" />
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <WrapPanel Grid.Row="1" Margin="0,18,0,0">
                         <Button Content="{Binding ConvertButtonText}"
                                 Command="{Binding ConvertCommand}"
-                                Background="#16181D"
-                                Foreground="White"
-                                BorderBrush="#16181D" />
+                                Background="{DynamicResource PrimaryButtonBackgroundBrush}"
+                                Foreground="{DynamicResource PrimaryButtonForegroundBrush}"
+                                BorderBrush="{DynamicResource PrimaryButtonBackgroundBrush}" />
                         <Button Content="Nova conversao"
                                 Command="{Binding NewConversionCommand}"
                                 Margin="12,0,0,0" />
-                    </StackPanel>
-                </StackPanel>
+                    </WrapPanel>
+                </Grid>
 
                 <Border Grid.Column="1"
-                        Background="#FAFAFB"
-                        BorderBrush="#EAECF1"
+                        Background="{DynamicResource PanelBackgroundBrush}"
+                        BorderBrush="{DynamicResource PanelBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
                         Padding="22">
-                    <StackPanel>
-                        <TextBlock Text="{Binding StatusTitle}"
-                                   FontSize="22"
-                                   FontWeight="SemiBold"
-                                   Foreground="#16181D"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding StatusMessage}"
-                                   Margin="0,10,0,18"
-                                   Foreground="#626A78"
-                                   FontSize="14"
-                                   TextWrapping="Wrap" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <TextBlock Text="{Binding StatusTitle}"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding StatusMessage}"
+                                       Margin="0,10,0,18"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontSize="14"
+                                       TextWrapping="Wrap" />
 
-                        <ProgressBar IsIndeterminate="True"
-                                     Height="7"
-                                     Visibility="{Binding ProgressVisibility}"
-                                     Margin="0,0,0,20" />
+                            <ProgressBar IsIndeterminate="True"
+                                         Height="7"
+                                         Visibility="{Binding ProgressVisibility}"
+                                         Margin="0,0,0,20" />
 
-                        <Border Background="White"
-                                BorderBrush="#E1E4EA"
-                                BorderThickness="1"
-                                CornerRadius="6"
-                                Padding="14"
-                                Margin="0,0,0,18">
-                            <StackPanel>
-                                <TextBlock Text="Arquivo" FontWeight="SemiBold" Foreground="#30343B" />
-                                <TextBlock Text="{Binding OutputFilename}"
-                                           Margin="0,6,0,0"
-                                           Foreground="#626A78"
-                                           TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
+                            <Border Background="{DynamicResource NestedPanelBackgroundBrush}"
+                                    BorderBrush="{DynamicResource SubtleBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="14"
+                                    Margin="0,0,0,18">
+                                <StackPanel>
+                                    <TextBlock Text="Arquivo" FontWeight="SemiBold" Foreground="{DynamicResource LabelTextBrush}" />
+                                    <TextBlock Text="{Binding OutputFilename}"
+                                               Margin="0,6,0,0"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
 
-                        <Button Content="Abrir arquivo"
-                                Command="{Binding OpenFileCommand}"
-                                Margin="0,0,0,10" />
-                        <Button Content="Abrir pasta"
-                                Command="{Binding OpenFolderCommand}" />
-                    </StackPanel>
+                            <Button Content="Abrir arquivo"
+                                    Command="{Binding OpenFileCommand}"
+                                    Margin="0,0,0,10" />
+                            <Button Content="Abrir pasta"
+                                    Command="{Binding OpenFolderCommand}" />
+                        </StackPanel>
+                    </ScrollViewer>
                 </Border>
             </Grid>
         </Border>
